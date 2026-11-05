@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 const readline = require('readline');
 
-const API_ENDPOINT = process.env.STATUSPULSE_URL || 'https://statuspulse-9qyq6oek5-kotralingaraju25-4094.vercel.app/api/mcp';
+const API_ENDPOINT = process.env.STATUSPULSE_URL || 'https://statuspulse-iq65sj8ed-kotralingaraju25-4094.vercel.app/api/mcp';
 
 const rl = readline.createInterface({
   input: process.stdin,
