@@ -25,7 +25,7 @@ rl.on('line', async (line) => {
 
   const { id, method, params } = request;
 
-  // 1. Initial MCP protocol handshake
+  // 1. Initial Handshake
   if (method === 'initialize') {
     send({
       jsonrpc: '2.0',
@@ -39,7 +39,7 @@ rl.on('line', async (line) => {
     return;
   }
 
-  // 2. Client acknowledges initialization
+  // 2. Initialized notification
   if (method === 'notifications/initialized') {
     return;
   }
@@ -50,7 +50,7 @@ rl.on('line', async (line) => {
     return;
   }
 
-  // 4. Forward tools/list and tools/call to your live Next.js endpoint
+  // 4. Handle tools/list and tools/call
   if (method === 'tools/list' || method === 'tools/call') {
     try {
       const response = await fetch(API_ENDPOINT, {
@@ -59,7 +59,15 @@ rl.on('line', async (line) => {
         body: JSON.stringify(request)
       });
       const data = await response.json();
-      send({ jsonrpc: '2.0', id, result: data });
+
+      // Ensure data is not double-nested
+      const payload = data.result !== undefined ? data.result : data;
+
+      send({
+        jsonrpc: '2.0',
+        id,
+        result: payload
+      });
     } catch (err) {
       send({
         jsonrpc: '2.0',
@@ -70,7 +78,7 @@ rl.on('line', async (line) => {
     return;
   }
 
-  // Fallback for unsupported methods
+  // Fallback
   send({
     jsonrpc: '2.0',
     id,
