@@ -1,69 +1,174 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+
+interface Incident {
+  id: string;
+  title: string;
+  severity: string;
+  status: string;
+  summary: string;
+  impacted_services: string[];
+  created_at: string;
+}
 
 export default function Home() {
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Incident>>({});
+
+  const fetchIncidents = async () => {
+    const { data } = await supabase.from('incidents').select('*').order('created_at', { ascending: false });
+    if (data) setIncidents(data);
+  };
+
+  useEffect(() => {
+    fetchIncidents();
+  }, []);
+
+  const startEdit = (inc: Incident) => {
+    setEditingId(inc.id);
+    setEditForm(inc);
+  };
+
+  const saveEdit = async (id: string) => {
+    await supabase.from('incidents').update({
+      title: editForm.title,
+      status: editForm.status,
+      severity: editForm.severity,
+      summary: editForm.summary
+    }).eq('id', id);
+
+    setEditingId(null);
+    fetchIncidents();
+  };
+
+  const hasActiveIncidents = incidents.some(i => i.status !== 'resolved');
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="max-w-4xl mx-auto py-12 px-4 font-sans">
+      <div className="flex justify-between items-center mb-8 pb-4 border-b">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">StatusPulse</h1>
+          <p className="text-sm text-gray-500">Live Infrastructure & Outage Monitor</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        <button
+          onClick={fetchIncidents}
+          className="px-3 py-1.5 text-sm font-medium bg-gray-100 hover:bg-gray-200 rounded border"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {/* Global Status Banner */}
+      <div className={`p-4 rounded-lg mb-8 text-white font-semibold flex items-center justify-between ${
+        hasActiveIncidents ? 'bg-amber-600' : 'bg-emerald-600'
+      }`}>
+        <span>{hasActiveIncidents ? 'Active Incident Reported' : 'All Systems Operational'}</span>
+        <span className="text-xs bg-black/20 px-2 py-1 rounded">Live</span>
+      </div>
+
+      {/* Incident List */}
+      <h2 className="text-xl font-semibold mb-4 text-gray-800">Incident History & Updates</h2>
+      <div className="space-y-4">
+        {incidents.length === 0 ? (
+          <p className="text-gray-500 italic">No incidents posted yet. Connect Claude via MCP to post an update.</p>
+        ) : (
+          incidents.map((incident) => (
+            <div key={incident.id} className="border rounded-lg p-5 bg-white shadow-sm">
+              {editingId === incident.id ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600">Title</label>
+                    <input
+                      type="text"
+                      className="w-full border p-2 rounded text-sm mt-1"
+                      value={editForm.title || ''}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600">Status</label>
+                      <select
+                        className="w-full border p-2 rounded text-sm mt-1"
+                        value={editForm.status || 'investigating'}
+                        onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                      >
+                        <option value="investigating">Investigating</option>
+                        <option value="identified">Identified</option>
+                        <option value="monitoring">Monitoring</option>
+                        <option value="resolved">Resolved</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600">Severity</label>
+                      <select
+                        className="w-full border p-2 rounded text-sm mt-1"
+                        value={editForm.severity || 'minor'}
+                        onChange={(e) => setEditForm({ ...editForm, severity: e.target.value })}
+                      >
+                        <option value="minor">Minor</option>
+                        <option value="major">Major</option>
+                        <option value="critical">Critical</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600">Summary</label>
+                    <textarea
+                      rows={3}
+                      className="w-full border p-2 rounded text-sm mt-1"
+                      value={editForm.summary || ''}
+                      onChange={(e) => setEditForm({ ...editForm, summary: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => saveEdit(incident.id)}
+                      className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded font-medium hover:bg-blue-700"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold text-lg text-gray-900">{incident.title}</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(incident.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <span className={`text-xs px-2 py-1 rounded font-medium uppercase ${
+                        incident.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {incident.status}
+                      </span>
+                      <button
+                        onClick={() => startEdit(incident)}
+                        className="text-xs text-blue-600 hover:underline border px-2 py-1 rounded"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{incident.summary}</p>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </main>
   );
 }
